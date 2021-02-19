@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>聊天室</title>
+    <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+</head>
+<body>
+
+    <div id='channels' class="rc-left">
+        <h1 id = 'channel-title'>chat-room</h1>
+        <a class="room-channel" href="#">hall room</a>
+        <a class="room-channel" href="#">game room</a>
+        <a class="room-channel" href="#">water room</a>
+    </div>
+    <h1>聊天框</h1>
+    <textarea id="chat_area" cols="80" rows="20"></textarea><br><br>
+    <input id="text" size="80" placeholder="Enter your message here"><br><br>
+    <script type="text/javascript" charset="utf-8">
+        var log = function() {
+              console.log.apply(console, arguments)
+        }
+
+        var socket;
+
+        var current_channel = ''
+        // 改变频道的函数（网页title，channel-title变化）
+        var change_channel = function(current_channel)
+        {
+            document.title = '聊天室 - ' + current_channel;
+            if(current_channel)
+            {
+                $("#channel-title").text(document.title);
+            }
+            else
+            {
+                $("#channel-title").text('no room');
+            }
+        }
+        // 清空聊天区
+        var clear_board = function()
+        {
+            $("#chat_area").val('');
+        }
+        // 准备函数
+        $(document).ready(function() {
+            // 创建socketio，并通过socketio建立websocket连接(io.connect返回一个s)
+            socket = io.connect('ws://' + document.domain + ':' + location.port + '/chat');
+            // connect时发生http协议的三次握手
+            socket.on('connect', function() {
+                log('connect 连接');
+                clear_board();
+            });
+
+            change_channel(current_channel)
+
+            $('.room-channel').on('click', function(e){
+                if (current_channel)
+                {
+                    socket.emit('left', {}, function() {
+                        log("left room")
+                    });
+                }
+                // 加入房间
+                current_channel = $(this).text();
+                change_channel(current_channel);
+                $('#chat_area').empty();
+                socket.emit('joined', {msg:current_channel});
+                // empty()方法移除所有内容包括所有文本和子节点
+            })
+
+            socket.on('status', function(data) {
+                $('#chat_area').val($('#chat_area').val() + '<' + data.msg + '>\n');
+                //$('#chat').scrollTop($('#chat')[0].scrollHeight);
+            });
+            socket.on('message', function(data) {
+                $('#chat_area').val($('#chat_area').val() + data.msg + '\n');
+                //$('#chat').scrollTop($('#chat')[0].scrollHeight);
+            });
+            $('#text').keypress(function(e) {
+                var code = e.keyCode || e.which;
+                if (code == 13) {
+                    if (!current_channel)
+                    {
+                        log("no current_channel:", current_channel);
+                        $('#text').val('');
+                        alert('未加入聊天室')
+                        return;
+                    }
+                    text = $('#text').val();
+                    $('#text').val('');
+                    socket.emit('text', {msg: text, room:current_channel});
+                }
+            });
+
+        });
+    </script>
+
+</body>
+</html>
